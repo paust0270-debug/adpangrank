@@ -1,10 +1,16 @@
 const { chromium } = require('playwright');
+const ConfigReader = require('./utils/config-reader');
 
 // ===== API 연동 설정 =====
-const API_BASE_URL = 'http://localhost:3000';
+const cfg = new ConfigReader('./config.ini');
+const API_ENABLED = (cfg.get('api', 'enabled') || 'false') === 'true';
+const API_BASE_URL = cfg.get('api', 'base_url') || 'http://localhost:3000';
 
 // ===== API 함수들 =====
 async function fetchKeywordsFromAPI() {
+  if (!API_ENABLED) {
+    return [];
+  }
   try {
     console.log('🔄 API에서 키워드 목록 가져오는 중...');
     const response = await fetch(`${API_BASE_URL}/api/keywords`);
@@ -34,6 +40,7 @@ function extractProductId(url) {
 }
 
 async function sendRankToAPI(keyword, url, slotType, rank, slotSequence) {
+  if (!API_ENABLED) return true; // API 사용 안함 시 성공 처리
   try {
     const response = await fetch(`${API_BASE_URL}/api/rank-update`, {
       method: 'POST',

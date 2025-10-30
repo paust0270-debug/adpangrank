@@ -7,7 +7,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "dist": "electron-builder --publish=never"
+    "dist": "electron-builder --publish=never",
+    "checker": "node continuous-rank-checker.js"
   },
   "build": {
     "appId": "com.coupang.rankchecker",
@@ -35,12 +36,13 @@
     }
   },
   "devDependencies": {
-    "electron": "27.0.0",
+    "electron": "^39.0.0",
     "electron-builder": "^24.6.4"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",
     "dotenv": "^17.2.3",
+    "node-fetch": "^3.3.2",
     "playwright": "^1.40.0"
   }
 }

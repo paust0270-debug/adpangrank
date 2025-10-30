@@ -1,6 +1,8 @@
 const { chromium } = require('playwright');
 const SupabaseClient = require('./supabase/client');
 const PlatformManager = require('./platform/index');
+const ADBController = require('./adb/controller');
+const ConfigReader = require('./utils/config-reader');
 
 /**
  * 24시간 연속 순위 체킹기
@@ -8,19 +10,28 @@ const PlatformManager = require('./platform/index');
  */
 class ContinuousRankChecker {
   constructor() {
+    this.configReader = new ConfigReader('./config.ini');
+    this.workerId = this.configReader.get('login', 'id') || 'worker-unknown';
     this.supabase = new SupabaseClient();
     this.platformManager = new PlatformManager();
+    this.adbController = new ADBController(this.configReader.get('adb', 'adb_path') || 'adb');
     this.browser = null;
     this.isRunning = false;
     this.processedCount = 0;
     this.errorCount = 0;
     this.startTime = null;
+    this.currentIp = null;
+    this.ipChangeIntervalMs = (parseInt(this.configReader.get('settings', 'ip_change_interval')) || 60) * 60 * 1000;
+    this.airplaneEnabled = (this.configReader.get('settings', 'airplane_mode_enabled') || 'false') === 'true';
+    this.ipChangeTimer = null;
+    this.useRpc = (this.configReader.get('settings', 'use_rpc') || 'true') === 'true';
   }
 
   /**
    * 시스템을 초기화합니다.
    */
   async initialize() {
+    console.log(`🎯 워커 ID: ${this.workerId}`);
     console.log('🎯 24시간 연속 순위 체킹기 초기화...');
     
     try {
@@ -65,11 +76,31 @@ class ContinuousRankChecker {
 
       console.log('✅ 브라우저 초기화 완료');
       console.log(`✅ 지원 플랫폼: ${this.platformManager.getSupportedPlatforms().join(', ')}`);
+
+      // 현재 IP 확인 및 타이머 시작
+      this.currentIp = await this.adbController.getCurrentIp();
+      console.log(`📍 현재 IP: ${this.currentIp}`);
+      if (this.airplaneEnabled) {
+        this.startIpChangeTimer();
+      }
       
     } catch (error) {
       console.error('❌ 초기화 실패:', error.message);
       throw error;
     }
+  }
+
+  startIpChangeTimer() {
+    console.log(`⏰ IP 변경 타이머 시작 (${Math.floor(this.ipChangeIntervalMs / 60000)}분마다)`);
+    if (this.ipChangeTimer) clearInterval(this.ipChangeTimer);
+    this.ipChangeTimer = setInterval(async () => {
+      try {
+        console.log('\n🔄 IP 변경 시간입니다...');
+        this.currentIp = await this.adbController.changeIp();
+      } catch (e) {
+        console.error('❌ IP 변경 실패:', e.message);
+      }
+    }, this.ipChangeIntervalMs);
   }
 
   /**
@@ -103,8 +134,8 @@ class ContinuousRankChecker {
    * 대기 중인 작업들을 처리합니다.
    */
   async processAvailableTasks() {
-    // 모든 플랫폼의 작업 목록 조회
-    const allTasks = await this.supabase.getAllPendingTasks();
+    // 워커별 할당 작업 조회
+    const allTasks = await this.supabase.getAllPendingTasks(this.workerId);
     
     if (allTasks.length === 0) {
       return; // 작업 목록이 비어있음
@@ -156,40 +187,54 @@ class ContinuousRankChecker {
       // 플랫폼별 핸들러로 처리
       const result = await this.platformManager.processSlot(task);
       
-      if (result.found) {
-        // 순위 정보를 Supabase에 저장
-        await this.supabase.saveRankStatus(
-          task.keyword,
-          task.link_url, // url → link_url로 수정
-          task.slot_type,
-          result.targetProductId,
-          result.rank,
-          result.rank // start_rank도 동일하게 설정 (처음 기록)
-        );
-        
-        console.log(`✅ 순위 저장 완료: ${result.rank}위`);
-        console.log(`📊 처리 시간: ${result.processingTime}ms`);
+      const currentRank = result.found ? result.rank : null;
+
+      // 대상 테이블 매핑
+      const table = (slotType => {
+        switch (slotType) {
+          case '쿠팡': return 'slot_status';
+          case '쿠팡VIP': return 'slot_copangvip';
+          case '쿠팡APP': return 'slot_copangapp';
+          case '쿠팡순위체크': return 'slot_copangrank';
+          default: return 'slot_status';
+        }
+      })(task.slot_type);
+
+      if (this.useRpc) {
+        // RPC로 순위 갱신 + keywords 삭제(트랜잭션)
+        await this.supabase.updateRankAndDeleteKeyword({
+          table,
+          slot_sequence: task.slot_sequence,
+          keyword: task.keyword,
+          link_url: task.link_url,
+          current_rank: currentRank,
+          keyword_id: task.id
+        });
       } else {
-        console.log(`❌ 상품을 찾지 못했습니다. (${result.totalProducts}개 상품 확인)`);
-        
-        // 상품을 찾지 못한 경우에도 기록 (선택사항)
-        if (result.totalProducts > 0) {
+        // 비-RPC fallback (이전 방식): 저장 후 삭제
+        if (currentRank !== null) {
           await this.supabase.saveRankStatus(
             task.keyword,
-            task.link_url, // url → link_url로 수정
+            task.link_url,
             task.slot_type,
             result.targetProductId,
-            null, // 순위 없음
-            null  // 시작 순위도 없음
+            currentRank,
+            currentRank
           );
         }
+        await this.supabase.deleteProcessedKeyword(task.id);
       }
 
-      // 처리 완료된 키워드 삭제
-      await this.supabase.deleteProcessedKeyword(task.id);
+      if (result.found) {
+        console.log(`✅ 순위 저장 완료: ${result.rank}위`);
+      } else {
+        console.log(`❌ 상품을 찾지 못했습니다. (${result.totalProducts}개 상품 확인)`);
+      }
+
+      console.log(`📊 처리 시간: ${result.processingTime}ms`);
       this.processedCount++;
       
-      console.log(`🗑️ 키워드 삭제 완료: ${task.id}`);
+      console.log(`🗑️ 트랜잭션 완료 및 키워드 삭제: ${task.id}`);
       console.log(`📈 처리 완료: ${this.processedCount}개, 오류: ${this.errorCount}개`);
 
     } catch (error) {
@@ -198,16 +243,6 @@ class ContinuousRankChecker {
       
       // 오류 발생 시에도 키워드를 삭제할지 결정 (선택사항)
       // await this.supabase.deleteProcessedKeyword(task.id);
-    } finally {
-      // 작업 완료 후 브라우저 닫기
-      if (this.browser) {
-        try {
-          await this.browser.close();
-          console.log('🔒 브라우저 종료');
-        } catch (browserError) {
-          console.error('❌ 브라우저 종료 오류:', browserError.message);
-        }
-      }
     }
   }
 
@@ -217,6 +252,10 @@ class ContinuousRankChecker {
   async stop() {
     console.log('\n🛑 시스템 중지 중...');
     this.isRunning = false;
+    if (this.ipChangeTimer) {
+      clearInterval(this.ipChangeTimer);
+      this.ipChangeTimer = null;
+    }
     
     if (this.browser) {
       await this.browser.close();

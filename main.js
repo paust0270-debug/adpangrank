@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+const ConfigReader = require('./utils/config-reader');
 
 let mainWindow;
 let rankCheckerProcess = null;
+let nextIpChangeAt = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -45,11 +47,20 @@ ipcMain.handle('start-rank-check', async () => {
   }
 
   try {
-    // Node.js 프로세스로 최종 완성체 스크립트 실행
-    rankCheckerProcess = spawn('node', ['optimized_fast_checker_gui.js'], {
-      cwd: __dirname,
+    // Electron을 Node처럼 실행하여 백엔드 루프 실행 (배포 환경에서 node 미설치 대응)
+    const appPath = app.getAppPath();
+    const scriptPath = path.join(appPath, 'continuous-rank-checker.js');
+    rankCheckerProcess = spawn(process.execPath, [scriptPath], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['pipe', 'pipe', 'pipe']
     });
+
+    // 간단한 타이머 기준값 설정 (UI 표시에 사용)
+    try {
+      const cfg = new ConfigReader('./config.ini');
+      const mins = parseInt(cfg.get('settings', 'ip_change_interval')) || 60;
+      nextIpChangeAt = Date.now() + mins * 60 * 1000;
+    } catch (_) {}
 
     // 실시간 로그 전송
     rankCheckerProcess.stdout.on('data', (data) => {
@@ -94,4 +105,26 @@ ipcMain.handle('get-status', async () => {
     isRunning: rankCheckerProcess !== null,
     pid: rankCheckerProcess ? rankCheckerProcess.pid : null
   };
+});
+
+// 워커 ID 조회
+ipcMain.handle('get-worker-id', async () => {
+  const cfg = new ConfigReader('./config.ini');
+  return cfg.get('login', 'id') || 'worker-unknown';
+});
+
+// 현재 IP 조회
+ipcMain.handle('get-current-ip', async () => {
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const data = await res.json();
+    return data.ip;
+  } catch (e) {
+    return null;
+  }
+});
+
+// 다음 IP 변경 예정 시각 조회 (ms epoch)
+ipcMain.handle('get-next-ip-change', async () => {
+  return nextIpChangeAt;
 });

@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+const ConfigReader = require('../utils/config-reader');
 
 // 밀리초를 제거한 타임스탬프 생성 함수 (created_at과 동일한 형태)
 function getTimestampWithoutMs() {
@@ -16,23 +16,54 @@ function getTimestampWithoutMs() {
 
 class SupabaseClient {
   constructor() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_ANON_KEY
-    );
+    const config = new ConfigReader('./config.ini');
+    const supabaseUrl = config.get('supabase', 'url') || process.env.SUPABASE_URL;
+    const supabaseKey = config.get('supabase', 'anon_key') || process.env.SUPABASE_ANON_KEY;
+    this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
-  // keywords 테이블에서 모든 대기 작업 조회 (id 오름차순)
-  async getAllPendingTasks() {
+  // RPC: 순위 갱신 + keywords 삭제 (트랜잭션)
+  async updateRankAndDeleteKeyword({ table, slot_sequence, keyword, link_url, current_rank, keyword_id }) {
+    const { error } = await this.supabase.rpc('update_rank_and_delete_keyword', {
+      p_table: table,
+      p_slot_sequence: slot_sequence,
+      p_keyword: keyword,
+      p_link_url: link_url,
+      p_current_rank: current_rank,
+      p_keyword_id: keyword_id
+    });
+    if (error) {
+      console.error('RPC 실패:', error);
+      throw error;
+    }
+  }
+
+  // keywords 테이블에서 대기 작업 조회 후 워커에게 할당 (slot_sequence 우선)
+  async getAllPendingTasks(workerId) {
     const { data, error } = await this.supabase
       .from('keywords')
-      .select('*')
-      .order('id', { ascending: true });
+      .select('id, slot_type, keyword, link_url, slot_sequence')
+      .is('assigned_to', null)
+      .order('slot_sequence', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(6);
 
     if (error) {
       console.error('작업 목록 조회 오류:', error);
       throw error;
     }
+
+    if (data && data.length > 0) {
+      const ids = data.map((t) => t.id);
+      const { error: assignError } = await this.supabase
+        .from('keywords')
+        .update({ assigned_to: workerId, assigned_at: new Date().toISOString() })
+        .in('id', ids);
+      if (assignError) {
+        console.error('작업 할당 오류:', assignError);
+      }
+    }
+
     return data || [];
   }
 

@@ -258,6 +258,11 @@
                 <div id="statusDot" class="status-dot stopped"></div>
                 <span id="statusText">대기 중</span>
             </div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;color:#333;">
+                <div>PC ID: <strong id="workerId">-</strong></div>
+                <div>현재 IP: <strong id="currentIp">-</strong></div>
+                <div>다음 IP 변경까지: <strong id="nextIpCountdown">-</strong></div>
+            </div>
             <div class="progress-bar">
                 <div id="progressFill" class="progress-fill"></div>
             </div>
@@ -311,6 +316,10 @@
         const logContainer = document.getElementById('logContainer');
         const progressFill = document.getElementById('progressFill');
         const scrollIndicator = document.getElementById('scrollIndicator');
+        const workerIdEl = document.getElementById('workerId');
+        const currentIpEl = document.getElementById('currentIp');
+        const nextIpCountdownEl = document.getElementById('nextIpCountdown');
+        let nextIpChangeAt = null;
 
         // 통계 요소들
         const totalProductsEl = document.getElementById('totalProducts');
@@ -458,6 +467,34 @@
 
         // 초기 상태 설정
         addLog('💡 팁: Ctrl+S로 시작, Ctrl+Q로 중지할 수 있습니다.', 'info');
+
+        // PC ID / IP / 다음 변경 정보 초기화
+        (async () => {
+            try {
+                const id = await ipcRenderer.invoke('get-worker-id');
+                workerIdEl.textContent = id;
+            } catch {}
+            try {
+                const ip = await ipcRenderer.invoke('get-current-ip');
+                if (ip) currentIpEl.textContent = ip;
+            } catch {}
+            try {
+                nextIpChangeAt = await ipcRenderer.invoke('get-next-ip-change');
+            } catch {}
+        })();
+
+        // 카운트다운 업데이트
+        setInterval(() => {
+            if (!nextIpChangeAt) return;
+            const remain = nextIpChangeAt - Date.now();
+            if (remain <= 0) {
+                nextIpCountdownEl.textContent = '곧 변경';
+                return;
+            }
+            const m = Math.floor(remain / 60000);
+            const s = Math.floor((remain % 60000) / 1000);
+            nextIpCountdownEl.textContent = `${m}분 ${s.toString().padStart(2,'0')}초`;
+        }, 1000);
     </script>
 </body>
 </html>
