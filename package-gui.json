@@ -1,0 +1,38 @@
+{
+  "name": "coupang-rank-checker-gui",
+  "version": "1.0.0",
+  "description": "쿠팡 순위 체킹 GUI 애플리케이션",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never"
+  },
+  "build": {
+    "appId": "com.coupang.rankchecker",
+    "productName": "쿠팡 순위 체킹기",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules",
+      "!dist"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

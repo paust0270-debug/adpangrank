@@ -1,0 +1,75 @@
+{
+  "products": [
+    {
+      "id": 1,
+      "keyword": "이동식 트롤리",
+      "productId": "8473798698",
+      "url": "https://www.coupang.com/vp/products/8473798698?itemId=24519876305",
+      "description": "이동식 트롤리 상품",
+      "category": "생활용품",
+      "addedDate": "2024-01-01",
+      "isActive": true
+    },
+    {
+      "id": 2,
+      "keyword": "자전거 자물쇠",
+      "productId": "7446595001",
+      "url": "https://www.coupang.com/vp/products/7446595001?itemId=24876606891",
+      "description": "자전거 자물쇠 상품",
+      "category": "자전거용품",
+      "addedDate": "2024-01-01",
+      "isActive": true
+    },
+    {
+      "id": 3,
+      "keyword": "자전거 라이트",
+      "productId": "8188782600",
+      "url": "https://www.coupang.com/vp/products/8188782600?itemId=23425236059",
+      "description": "자전거 라이트 상품",
+      "category": "자전거용품",
+      "addedDate": "2024-01-01",
+      "isActive": true
+    }
+  ],
+  "searchHistory": [
+    {
+      "id": 1,
+      "productId": "8473798698",
+      "keyword": "이동식 트롤리",
+      "rank": 5,
+      "totalProducts": 44,
+      "pagesChecked": 1,
+      "searchDate": "2024-01-15T10:30:00Z",
+      "status": "FOUND"
+    },
+    {
+      "id": 2,
+      "productId": "7446595001",
+      "keyword": "자전거 자물쇠",
+      "rank": 12,
+      "totalProducts": 156,
+      "pagesChecked": 3,
+      "searchDate": "2024-01-15T10:35:00Z",
+      "status": "FOUND"
+    },
+    {
+      "id": 3,
+      "productId": "8188782600",
+      "keyword": "자전거 라이트",
+      "rank": null,
+      "totalProducts": 2000,
+      "pagesChecked": 20,
+      "searchDate": "2024-01-15T10:40:00Z",
+      "status": "NOT_FOUND_IN_2000"
+    }
+  ],
+  "settings": {
+    "maxPages": 20,
+    "maxProducts": 2000,
+    "delay": 600,
+    "timeout": 6000,
+    "headless": false,
+    "autoSave": true,
+    "lastUpdated": "2024-01-15T10:45:00Z"
+  }
+}

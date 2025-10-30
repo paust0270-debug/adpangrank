@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>쿠팡 순위 체킹기 v1.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 90%;
+            max-width: 1000px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 150px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-start {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(45deg, #f44336, #d32f2f);
+            color: white;
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+        }
+
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.running {
+            background: #4CAF50;
+        }
+
+        .status-dot.stopped {
+            background: #f44336;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .log-container {
+            flex: 1;
+            background: #1e1e1e;
+            border-radius: 15px;
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .log-line {
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+
+        .log-info {
+            color: #4CAF50;
+        }
+
+        .log-warning {
+            color: #FF9800;
+        }
+
+        .log-error {
+            color: #f44336;
+        }
+
+        .log-success {
+            color: #2196F3;
+        }
+
+        .log-rank {
+            color: #9C27B0;
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-top: 3px solid #667eea;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .scroll-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .scroll-indicator.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 쿠팡 순위 체킹기</h1>
+            <p>최종 완성체 v1.0 - 고속 순위 검색 시스템</p>
+        </div>
+
+        <div class="control-panel">
+            <button id="startBtn" class="btn btn-start">
+                🚀 시작하기
+            </button>
+            <button id="stopBtn" class="btn btn-stop" disabled>
+                ⏹️ 중지하기
+            </button>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-indicator">
+                <div id="statusDot" class="status-dot stopped"></div>
+                <span id="statusText">대기 중</span>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div id="totalProducts" class="stat-number">0</div>
+                <div class="stat-label">총 상품 수</div>
+            </div>
+            <div class="stat-card">
+                <div id="pagesChecked" class="stat-number">0</div>
+                <div class="stat-label">확인 페이지</div>
+            </div>
+            <div class="stat-card">
+                <div id="foundProducts" class="stat-number">0</div>
+                <div class="stat-label">발견된 상품</div>
+            </div>
+            <div class="stat-card">
+                <div id="elapsedTime" class="stat-number">00:00</div>
+                <div class="stat-label">경과 시간</div>
+            </div>
+        </div>
+
+        <div class="log-container" id="logContainer">
+            <div class="log-line log-info">🎯 쿠팡 순위 체킹기 v1.0이 준비되었습니다.</div>
+            <div class="log-line log-info">📋 검색할 상품:</div>
+            <div class="log-line log-info">   1. 자전거 자물쇠 (상품번호: 8471564474)</div>
+            <div class="log-line log-info">   2. 나무도마 (상품번호: 8961322657)</div>
+            <div class="log-line log-info">   3. 대나무도마 (상품번호: 8961322657)</div>
+            <div class="log-line log-info">🚀 시작 버튼을 클릭하여 검색을 시작하세요!</div>
+        </div>
+    </div>
+
+    <div id="scrollIndicator" class="scroll-indicator">
+        자동 스크롤 중...
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        let isRunning = false;
+        let startTime = null;
+        let timerInterval = null;
+        let autoScroll = true;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const logContainer = document.getElementById('logContainer');
+        const progressFill = document.getElementById('progressFill');
+        const scrollIndicator = document.getElementById('scrollIndicator');
+
+        // 통계 요소들
+        const totalProductsEl = document.getElementById('totalProducts');
+        const pagesCheckedEl = document.getElementById('pagesChecked');
+        const foundProductsEl = document.getElementById('foundProducts');
+        const elapsedTimeEl = document.getElementById('elapsedTime');
+
+        // 로그 추가 함수
+        function addLog(message, type = 'info') {
+            const logLine = document.createElement('div');
+            logLine.className = `log-line log-${type}`;
+            logLine.textContent = message;
+            logContainer.appendChild(logLine);
+            
+            if (autoScroll) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+                scrollIndicator.classList.add('show');
+                setTimeout(() => scrollIndicator.classList.remove('show'), 1000);
+            }
+        }
+
+        // 통계 업데이트
+        function updateStats(data) {
+            if (data.totalProducts) totalProductsEl.textContent = data.totalProducts;
+            if (data.pagesChecked) pagesCheckedEl.textContent = data.pagesChecked;
+            if (data.foundProducts) foundProductsEl.textContent = data.foundProducts;
+        }
+
+        // 타이머 시작
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                elapsedTimeEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // 타이머 중지
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // 시작 버튼 클릭
+        startBtn.addEventListener('click', async () => {
+            try {
+                const result = await ipcRenderer.invoke('start-rank-check');
+                if (result.success) {
+                    isRunning = true;
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    statusDot.className = 'status-dot running';
+                    statusText.textContent = '실행 중';
+                    startTimer();
+                    addLog('🚀 순위 체킹을 시작했습니다.', 'success');
+                } else {
+                    addLog(`❌ 시작 실패: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ 오류 발생: ${error.message}`, 'error');
+            }
+        });
+
+        // 중지 버튼 클릭
+        stopBtn.addEventListener('click', async () => {
+            try {
+                const result = await ipcRenderer.invoke('stop-rank-check');
+                if (result.success) {
+                    isRunning = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    statusDot.className = 'status-dot stopped';
+                    statusText.textContent = '중지됨';
+                    stopTimer();
+                    addLog('⏹️ 순위 체킹을 중지했습니다.', 'warning');
+                } else {
+                    addLog(`❌ 중지 실패: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ 오류 발생: ${error.message}`, 'error');
+            }
+        });
+
+        // 로그 스크롤 이벤트
+        logContainer.addEventListener('scroll', () => {
+            const isAtBottom = logContainer.scrollTop + logContainer.clientHeight >= logContainer.scrollHeight - 10;
+            autoScroll = isAtBottom;
+        });
+
+        // IPC 이벤트 리스너
+        ipcRenderer.on('rank-check-log', (event, message) => {
+            const lines = message.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+                if (line.includes('🎯') || line.includes('발견!')) {
+                    addLog(line, 'rank');
+                } else if (line.includes('❌') || line.includes('오류')) {
+                    addLog(line, 'error');
+                } else if (line.includes('✅') || line.includes('완료')) {
+                    addLog(line, 'success');
+                } else if (line.includes('⚡') || line.includes('진행')) {
+                    addLog(line, 'warning');
+                } else {
+                    addLog(line, 'info');
+                }
+            });
+        });
+
+        ipcRenderer.on('rank-check-error', (event, message) => {
+            addLog(`❌ ${message}`, 'error');
+        });
+
+        ipcRenderer.on('rank-check-complete', (event, code) => {
+            isRunning = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            statusDot.className = 'status-dot stopped';
+            statusText.textContent = '완료';
+            stopTimer();
+            addLog(`🏁 순위 체킹이 완료되었습니다. (종료 코드: ${code})`, 'success');
+        });
+
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        if (!isRunning) {
+                            startBtn.click();
+                        }
+                        break;
+                    case 'q':
+                        e.preventDefault();
+                        if (isRunning) {
+                            stopBtn.click();
+                        }
+                        break;
+                }
+            }
+        });
+
+        // 초기 상태 설정
+        addLog('💡 팁: Ctrl+S로 시작, Ctrl+Q로 중지할 수 있습니다.', 'info');
+    </script>
+</body>
+</html>
