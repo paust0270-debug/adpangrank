@@ -26,9 +26,7 @@
       "icon": "icon.ico",
       "sign": false,
       "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false,
-      "certificateFile": null,
-      "certificatePassword": null
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
@@ -36,8 +34,8 @@
     }
   },
   "devDependencies": {
-    "electron": "^39.0.0",
-    "electron-builder": "^24.6.4"
+    "electron": "^27.1.3",
+    "electron-builder": "^23.6.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",

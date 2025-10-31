@@ -3,7 +3,24 @@ const path = require('path');
 
 class ConfigReader {
 	constructor(configPath) {
-		this.configPath = path.resolve(configPath);
+		const candidates = [];
+		try {
+			// exe 옆 (패키징된 환경)
+			candidates.push(path.join(path.dirname(process.execPath), 'config.ini'));
+			// resources 경로 (설치 패키지 구성 시)
+			if (process.resourcesPath) {
+				candidates.push(path.join(process.resourcesPath, 'config.ini'));
+			}
+		} catch (_) { /* no-op */ }
+		// 개발 환경 기본 경로
+		candidates.push(path.resolve(configPath || './config.ini'));
+
+		let found = null;
+		for (const p of candidates) {
+			try { if (fs.existsSync(p)) { found = p; break; } } catch (_) { /* ignore */ }
+		}
+
+		this.configPath = found || path.resolve(configPath || './config.ini');
 		this.config = this.parse(this.configPath);
 	}
 

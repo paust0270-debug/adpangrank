@@ -42,8 +42,8 @@ class CoupangHandler extends BaseHandler {
       const result = await this.searchCoupang(page, slotData);
       return result;
     } finally {
-      // 브라우저 유지를 위해 context.close() 제거
-      // await context.close();
+      try { await page.close({ runBeforeUnload: true }); } catch (_) {}
+      try { await context.close(); } catch (_) {}
     }
   }
 

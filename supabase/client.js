@@ -24,13 +24,35 @@ class SupabaseClient {
 
   // RPC: 순위 갱신 + keywords 삭제 (트랜잭션)
   async updateRankAndDeleteKeyword({ table, slot_sequence, keyword, link_url, current_rank, keyword_id }) {
+    // 입력값 정제: 빈 문자열("")을 정수로 변환, 숫자가 아니면 에러 처리
+    const normalizedSlotSeq = typeof slot_sequence === 'string' ? slot_sequence.trim() : slot_sequence;
+    const normalizedKeywordId = typeof keyword_id === 'string' ? keyword_id.trim() : keyword_id;
+    const normalizedCurrentRank = typeof current_rank === 'string' ? current_rank.trim() : current_rank;
+
+    const slotSeqInt = normalizedSlotSeq === '' || normalizedSlotSeq === null || normalizedSlotSeq === undefined
+      ? NaN
+      : Number.parseInt(normalizedSlotSeq, 10);
+    const keywordIdInt = normalizedKeywordId === '' || normalizedKeywordId === null || normalizedKeywordId === undefined
+      ? NaN
+      : Number.parseInt(normalizedKeywordId, 10);
+    const currentRankInt = normalizedCurrentRank === '' || normalizedCurrentRank === null || normalizedCurrentRank === undefined
+      ? null
+      : Number.parseInt(normalizedCurrentRank, 10);
+
+    if (!Number.isFinite(slotSeqInt)) {
+      throw new Error(`잘못된 slot_sequence 값: "${slot_sequence}"`);
+    }
+    if (!Number.isFinite(keywordIdInt)) {
+      throw new Error(`잘못된 keyword_id 값: "${keyword_id}"`);
+    }
+
     const { error } = await this.supabase.rpc('update_rank_and_delete_keyword', {
       p_table: table,
-      p_slot_sequence: slot_sequence,
+      p_slot_sequence: slotSeqInt,
       p_keyword: keyword,
       p_link_url: link_url,
-      p_current_rank: current_rank,
-      p_keyword_id: keyword_id
+      p_current_rank: currentRankInt,
+      p_keyword_id: keywordIdInt
     });
     if (error) {
       console.error('RPC 실패:', error);

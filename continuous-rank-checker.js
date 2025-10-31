@@ -27,6 +27,16 @@ class ContinuousRankChecker {
     this.useRpc = (this.configReader.get('settings', 'use_rpc') || 'true') === 'true';
   }
 
+  normalizePlatform(slotType) {
+    const s = String(slotType || '').trim().toLowerCase();
+    // 쿠팡 계열은 모두 웹 쿠팡 처리로 통일
+    if (s === '쿠팡' || s === 'coupang' || s === 'coupang-web') return 'coupang';
+    if (s === '쿠팡vip' || s === 'coupangvip' || s === '쿠팡app' || s === 'coupangapp' || s === '쿠팡순위체크' || s === 'coupangrank') return 'coupang';
+    if (s === 'naver' || s === '네이버') return 'naver';
+    if (s === '11st' || s === '11번가') return '11st';
+    return s;
+  }
+
   /**
    * 시스템을 초기화합니다.
    */
@@ -143,8 +153,9 @@ class ContinuousRankChecker {
 
     console.log(`\n📋 총 ${allTasks.length}개의 작업을 처리합니다.`);
 
-    // 플랫폼별로 그룹화
-    const tasksByPlatform = this.groupTasksByPlatform(allTasks);
+    // 플랫폼별로 그룹화 (정규화된 키 사용)
+    const normalizedTasks = allTasks.map(t => ({ ...t, slot_type: this.normalizePlatform(t.slot_type) }));
+    const tasksByPlatform = this.groupTasksByPlatform(normalizedTasks);
 
     for (const [platform, tasks] of tasksByPlatform) {
       console.log(`\n🔍 ${platform} 플랫폼 작업 시작 (${tasks.length}개)`);
@@ -167,10 +178,11 @@ class ContinuousRankChecker {
     const grouped = new Map();
     
     tasks.forEach(task => {
-      if (!grouped.has(task.slot_type)) {
-        grouped.set(task.slot_type, []);
+      const key = task.slot_type;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
       }
-      grouped.get(task.slot_type).push(task);
+      grouped.get(key).push(task);
     });
     
     return grouped;
@@ -181,11 +193,13 @@ class ContinuousRankChecker {
    * @param {Object} task - 처리할 작업
    */
   async processTask(task) {
-    console.log(`\n🔍 처리 시작: "${task.keyword}" (ID: ${task.id}, 플랫폼: ${task.slot_type})`);
+    const normalized = this.normalizePlatform(task.slot_type);
+    const taskForPlatform = { ...task, slot_type: normalized };
+    console.log(`\n🔍 처리 시작: "${task.keyword}" (ID: ${task.id}, 플랫폼: ${task.slot_type} -> ${normalized})`);
     
     try {
       // 플랫폼별 핸들러로 처리
-      const result = await this.platformManager.processSlot(task);
+      const result = await this.platformManager.processSlot(taskForPlatform);
       
       const currentRank = result.found ? result.rank : null;
 
