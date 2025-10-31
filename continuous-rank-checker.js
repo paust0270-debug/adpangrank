@@ -233,7 +233,8 @@ class ContinuousRankChecker {
             task.slot_type,
             result.targetProductId,
             currentRank,
-            currentRank
+            currentRank,
+            task.slot_sequence  // slot_sequence 추가 (1:1 매칭을 위해)
           );
         }
         await this.supabase.deleteProcessedKeyword(task.id);

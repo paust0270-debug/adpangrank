@@ -19,12 +19,25 @@
     "files": [
       "**/*",
       "!node_modules",
-      "!dist"
+      "!dist",
+      "!**/*.md",
+      "!**/.git/**",
+      "!**/.vscode/**",
+      "!**/.cursor/**",
+      "!**/.taskmaster/**",
+      "!**/.husky/**"
+    ],
+    "extraFiles": [
+      "config.ini"
+    ],
+    "asarUnpack": [
+      "config.ini"
     ],
     "win": {
       "target": "dir",
       "icon": "icon.ico",
-      "sign": false,
+      "sign": null,
+      "signingHashAlgorithms": null,
       "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false
     },
